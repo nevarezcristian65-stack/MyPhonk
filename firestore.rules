@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net: default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation functions
+    function isValidUserLibrary(data) {
+      return data.keys().hasAll(['favorites', 'listeningHistory', 'accentColor', 'glowIntensity', 'userId', 'updatedAt'])
+        && data.keys().size() == 6
+        && data.userId == request.auth.uid
+        && data.favorites is list
+        && data.listeningHistory is list
+        && data.accentColor is string
+        && data.accentColor.size() <= 25
+        && data.glowIntensity is string
+        && (data.glowIntensity == 'low' || data.glowIntensity == 'medium' || data.glowIntensity == 'high')
+        && data.updatedAt is string;
+    }
+
+    function isValidPlaylist(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'trackIds', 'createdAt', 'userId'])
+        && data.keys().size() == 6
+        && data.userId == request.auth.uid
+        && data.id is string
+        && data.id.size() <= 128
+        && data.name is string
+        && data.name.size() <= 100
+        && data.description is string
+        && data.description.size() <= 250
+        && data.trackIds is list
+        && data.createdAt is string;
+    }
+
+    function isValidTrack(data) {
+      return data.keys().hasAll(['id', 'title', 'artist', 'duration', 'durationSeconds', 'url', 'coverUrl', 'genre', 'mood', 'downloadUrl', 'flacDownloadUrl', 'lyrics', 'likesCount', 'playsCount', 'isUserUploaded', 'userId', 'createdAt'])
+        && data.keys().size() == 17
+        && data.userId == request.auth.uid
+        && data.id is string
+        && data.id.size() <= 128
+        && data.title is string
+        && data.title.size() <= 100
+        && data.artist is string
+        && data.artist.size() <= 100
+        && data.duration is string
+        && data.durationSeconds is number
+        && data.url is string
+        && data.coverUrl is string
+        && data.genre is string
+        && data.mood is string
+        && data.downloadUrl is string
+        && data.flacDownloadUrl is string
+        && data.lyrics is string
+        && data.likesCount is number
+        && data.playsCount is number
+        && data.isUserUploaded == true
+        && data.createdAt is string;
+    }
+
+    // Rules for userLibraries
+    match /userLibraries/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserLibrary(incoming());
+      
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserLibrary(incoming()) 
+        && incoming().userId == existing().userId; // Keep userId immutable
+      
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Playlists subcollection under userLibrary
+      match /playlists/{playlistId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(playlistId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(playlistId) 
+          && isValidPlaylist(incoming());
+          
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(playlistId)
+          && isValidPlaylist(incoming())
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId;
+          
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(playlistId);
+      }
+    }
+
+    // Rules for customTracks
+    match /tracks/{trackId} {
+      allow get: if isSignedIn() && isValidId(trackId);
+      allow list: if isSignedIn() && resource.data.isUserUploaded == true;
+
+      allow create: if isSignedIn() && isValidId(trackId) && isValidTrack(incoming());
+      
+      allow update: if isSignedIn() && isValidId(trackId)
+        && isValidTrack(incoming())
+        && isOwner(existing().userId)
+        && incoming().userId == existing().userId
+        && incoming().id == existing().id;
+        
+      allow delete: if isSignedIn() && isValidId(trackId) && isOwner(existing().userId);
+    }
+
+    // Rules for subscriptions (Premium access info)
+    match /subscriptions/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create, update, delete: if false; // Only manageable server-side via firebase-admin SDK
+    }
+  }
+}

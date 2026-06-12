@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "UserLibrary": {
+      "title": "UserLibrary",
+      "description": "User specific application settings and behavioral stats",
+      "type": "object",
+      "properties": {
+        "favorites": { "type": "array", "description": "Array of track IDs favorited by the user" },
+        "listeningHistory": { "type": "array", "description": "List of recently played tracks and their history" },
+        "accentColor": { "type": "string", "description": "Visual RGB/HEX color representation" },
+        "glowIntensity": { "type": "string", "enum": ["low", "medium", "high"], "description": "Selected neon shadow glow strength" },
+        "userId": { "type": "string", "description": "Associated user UID" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["favorites", "accentColor", "glowIntensity", "userId"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "Custom playlist containing filtered sub-tracks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "trackIds": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "name", "trackIds", "createdAt", "userId"]
+    },
+    "Track": {
+      "title": "Track",
+      "description": "Metadata of pre-loaded or custom uploaded phonk sounds",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "duration": { "type": "string" },
+        "durationSeconds": { "type": "number" },
+        "url": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "genre": { "type": "string" },
+        "mood": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "flacDownloadUrl": { "type": "string" },
+        "lyrics": { "type": "string" },
+        "likesCount": { "type": "number" },
+        "playsCount": { "type": "number" },
+        "isUserUploaded": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "artist", "url", "coverUrl", "genre", "mood", "isUserUploaded", "userId"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "Premium subscriber records used for access control",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "stripeCustomerId": { "type": "string" },
+        "subscriptionId": { "type": "string" },
+        "status": { "type": "string" },
+        "plan": { "type": "string" },
+        "currentPeriodEnd": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "stripeCustomerId", "subscriptionId", "status", "plan", "currentPeriodEnd", "createdAt"]
+    }
+  },
+  "firestore": {
+    "userLibraries/{userId}": {
+      "schema": "UserLibrary",
+      "description": "User specific app state and customization data"
+    },
+    "userLibraries/{userId}/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "A user's custom created lists of tracks"
+    },
+    "tracks/{trackId}": {
+      "schema": "Track",
+      "description": "All phonk music tracks including those uploaded by users"
+    },
+    "subscriptions/{userId}": {
+      "schema": "Subscription",
+      "description": "Safe individual user premium subscription status"
+    }
+  }
+}

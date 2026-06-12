@@ -1,0 +1,8 @@
+{
+  "name": "MyPhonk",
+  "description": "Una moderna y premium plataforma de música con reproductor Phonk, descargas directas en FLAC, letras sincronizadas con IA, biblioteca en la nube, soporte offline y recomendaciones personalizadas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
