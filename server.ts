@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import fs from "fs";
 import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 import Stripe from "stripe";
 
 dotenv.config();
@@ -33,24 +34,30 @@ function getAdminDb() {
   if (!adminDbInstance) {
     try {
       const config = getFirebaseConfig();
+      console.log("ADMIN_KEYS", Object.keys(admin));
+      console.log("ADMIN_OBJECT", admin);
       const apps = (admin as any).apps || [];
+      let app;
       if (apps.length === 0) {
         try {
-          (admin as any).initializeApp({
+          app = (admin as any).initializeApp({
             credential: (admin as any).credential && typeof (admin as any).credential.applicationDefault === "function"
-              ? (admin as any).credential.applicationDefault() 
+               ? (admin as any).credential.applicationDefault() 
               : undefined,
             projectId: config.projectId
           });
         } catch (innerE) {
-          (admin as any).initializeApp({
+          app = (admin as any).initializeApp({
             projectId: config.projectId
           });
         }
+      } else {
+        app = apps[0];
       }
+      console.log("APP_OBJECT", app);
       adminDbInstance = config.firestoreDatabaseId 
-        ? (admin as any).firestore(config.firestoreDatabaseId) 
-        : (admin as any).firestore();
+        ? getFirestore(app, config.firestoreDatabaseId) 
+        : getFirestore(app);
     } catch (err) {
       console.error("Firebase Admin SDK failed to initialize:", err);
       throw err;
