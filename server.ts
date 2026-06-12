@@ -255,7 +255,7 @@ app.post(
 // Enable standard parsing for downstream routes
 app.use(express.json());
 
-// 2. CHECKOUT SESSION CREATION ENDPOINT
+// 2. CHECKOUT SESSION CREATION ENDPOINT (REAL STRIPE ONLY)
 app.post("/api/create-checkout-session", async (req, res) => {
   const { userId, email, plan } = req.body;
 
@@ -270,9 +270,8 @@ app.post("/api/create-checkout-session", async (req, res) => {
   const arePricesConfigured = PRICE_MONTHLY && PRICE_YEARLY && PRICE_MONTHLY.trim() !== "" && PRICE_YEARLY.trim() !== "";
 
   if (!isStripeConfigured || !arePricesConfigured) {
-    return res.json({ 
-      isMockRequired: true,
-      reason: "Las claves o precios de Stripe no están configurados. Cambiando a modo de simulación segura de tarjeta."
+    return res.status(400).json({ 
+      error: "La pasarela de Stripe no está completamente configurada en el servidor. Por favor asegúrate de definir STRIPE_SECRET_KEY, STRIPE_PRICE_MONTHLY, y STRIPE_PRICE_YEARLY en las variables de entorno de tu aplicación."
     });
   }
 
@@ -316,11 +315,11 @@ app.post("/api/create-checkout-session", async (req, res) => {
     res.json({ url: session.url });
   } catch (err: any) {
     console.error("Create Stripe Checkout Session error details:", err);
-    res.status(500).json({ error: err?.message || "Imposible crear la sesión de Checkout con Stripe." });
+    res.status(500).json({ error: err?.message || "Imposible crear la sesión de Checkout con Stripe en producción." });
   }
 });
 
-// 3. BILLING CUSTOMER PORTAL REDIRECT ENDPOINT
+// 3. BILLING CUSTOMER PORTAL REDIRECT ENDPOINT (REAL STRIPE ONLY)
 app.post("/api/create-portal-session", async (req, res) => {
   const { userId } = req.body;
 
@@ -328,12 +327,19 @@ app.post("/api/create-portal-session", async (req, res) => {
     return res.status(400).json({ error: "userId es obligatorio." });
   }
 
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey || stripeKey.trim() === "" || stripeKey === "MY_STRIPE_SECRET_KEY") {
+    return res.status(400).json({
+      error: "La pasarela de Stripe no está completamente configurada en el servidor para crear portales de facturación."
+    });
+  }
+
   try {
     const stripe = getStripe();
     const docSnap = await getAdminDb().collection("subscriptions").doc(userId).get();
 
     if (!docSnap.exists) {
-      return res.status(404).json({ error: "No se encontró historial para este usuario en el panel." });
+      return res.status(404).json({ error: "No se encontró historial de suscripción para este usuario en la base de datos." });
     }
 
     const sub = docSnap.data();
@@ -349,80 +355,7 @@ app.post("/api/create-portal-session", async (req, res) => {
     res.json({ url: portalSession.url });
   } catch (err: any) {
     console.error("Create Stripe Portal error:", err);
-    res.status(500).json({ error: err?.message || "Error al abrir el portal de facturación." });
-  }
-});
-
-// 4. SIMULATED STRIPE ENDPOINTS FOR SANDBOX MODE WITHOUT APIS
-app.post("/api/mock-checkout-success", async (req, res) => {
-  const { userId, plan, email } = req.body;
-  if (!userId) {
-    return res.status(400).json({ error: "userId es obligatorio." });
-  }
-  try {
-    const expiredDate = new Date();
-    if (plan === "yearly") {
-      expiredDate.setFullYear(expiredDate.getFullYear() + 1);
-    } else {
-      expiredDate.setMonth(expiredDate.getMonth() + 1);
-    }
-    
-    const subRecord = {
-      userId: userId,
-      stripeCustomerId: "cus_sim_" + Math.random().toString(36).substring(4),
-      subscriptionId: "sub_sim_" + Math.random().toString(36).substring(4),
-      status: "active",
-      plan: plan || "monthly",
-      currentPeriodEnd: expiredDate.toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    await getAdminDb().collection("subscriptions").doc(userId).set(subRecord);
-    res.json({ success: true, subscription: subRecord });
-  } catch (err: any) {
-    console.error("Mock checkout set failure:", err);
-    res.status(500).json({ error: "Fallo al guardar la suscripción simulada." });
-  }
-});
-
-app.post("/api/start-reverse-trial", async (req, res) => {
-  const { userId, email } = req.body;
-  if (!userId) {
-    return res.status(400).json({ error: "userId es obligatorio." });
-  }
-  try {
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 14); // 14-day trial
-    
-    const subRecord = {
-      userId: userId,
-      stripeCustomerId: "cus_mock_trial_" + Math.random().toString(36).substring(4),
-      subscriptionId: "sub_mock_trial_" + Math.random().toString(36).substring(4),
-      status: "trialing",
-      plan: "pro",
-      currentPeriodEnd: trialEndDate.toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    await getAdminDb().collection("subscriptions").doc(userId).set(subRecord);
-    res.json({ success: true, subscription: subRecord });
-  } catch (err: any) {
-    console.error("Failed to start reverse trial:", err);
-    res.status(500).json({ error: "No se pudo iniciar la prueba gratuita de 14 días (Reverse Trial)." });
-  }
-});
-
-app.post("/api/mock-cancel-subscription", async (req, res) => {
-  const { userId } = req.body;
-  if (!userId) {
-    return res.status(400).json({ error: "userId es obligatorio." });
-  }
-  try {
-    await getAdminDb().collection("subscriptions").doc(userId).delete();
-    res.json({ success: true });
-  } catch (err: any) {
-    console.error("Mock cancel failure:", err);
-    res.status(500).json({ error: "Fallo al cancelar la suscripción del servidor de Firebase." });
+    res.status(500).json({ error: err?.message || "Error al abrir el portal de facturación en Stripe." });
   }
 });
 

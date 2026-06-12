@@ -87,6 +87,46 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Synchronize authenticated user profile to `/users/{userId}`
+  useEffect(() => {
+    if (!user) return;
+    
+    const syncUserProfile = async () => {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userRef);
+        const now = new Date().toISOString();
+        
+        const userData = {
+          uid: user.uid,
+          email: user.email || "",
+          displayName: user.displayName || "Usuario Phonk",
+          photoURL: user.photoURL || "",
+          updatedAt: now
+        };
+        
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            ...userData,
+            createdAt: now
+          });
+          console.log("👤 New user profile created cleanly in Firestore users collection.");
+        } else {
+          await updateDoc(userRef, {
+            email: userData.email,
+            displayName: userData.displayName,
+            photoURL: userData.photoURL,
+            updatedAt: now
+          });
+        }
+      } catch (err) {
+        console.error("Firestore user sync failure:", err);
+      }
+    };
+    
+    syncUserProfile();
+  }, [user]);
+
   // Auth Operations
   const handleSignIn = async () => {
     try {
@@ -264,6 +304,32 @@ export default function App() {
     }, 800);
   };
 
+  // Log user activity to the cloud firestore
+  const logUserActivity = async (type: string, trackId: string | null = null, details: string | null = null) => {
+    if (!user) return;
+    try {
+      const activityId = `act_${Date.now()}_${Math.random().toString(36).substring(4)}`;
+      const activityRef = doc(db, "activity", activityId);
+      await setDoc(activityRef, {
+        id: activityId,
+        userId: user.uid,
+        type: type,
+        trackId: trackId || "",
+        details: details || "",
+        timestamp: new Date().toISOString()
+      });
+      console.log(`Log activity [${type}] written cleanly to Firestore.`);
+    } catch (err) {
+      console.error("Failed to write to activity stream:", err);
+    }
+  };
+
+  // Listen to track changes to log play activity cleanly
+  useEffect(() => {
+    if (!currentTrack || !user) return;
+    logUserActivity("play", currentTrack.id, `Escuchando: ${currentTrack.title}`);
+  }, [currentTrack, user]);
+
   // Toggle Offline listening mode
   const handleToggleOffline = () => {
     const isNextOffline = !isOffline;
@@ -295,6 +361,7 @@ export default function App() {
           userId: user.uid,
           createdAt: new Date().toISOString()
         });
+        await logUserActivity("upload", newTrack.id, `Remezcló su propia pista de Phonk: ${newTrack.title}`);
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, `tracks/${newTrack.id}`);
       }

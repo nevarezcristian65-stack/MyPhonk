@@ -67,6 +67,49 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "stripeCustomerId", "subscriptionId", "status", "plan", "currentPeriodEnd", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile details synchronized from Firebase Auth",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Transactions completed via Stripe Checkout",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" },
+        "plan": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "amount", "currency", "status", "createdAt"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "User activity logging (track plays, uploads, favorites)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "trackId": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "type", "timestamp"]
     }
   },
   "firestore": {
@@ -85,6 +128,18 @@
     "subscriptions/{userId}": {
       "schema": "Subscription",
       "description": "Safe individual user premium subscription status"
+    },
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Profile details of registered users"
+    },
+    "payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment records synced from Stripe"
+    },
+    "activity/{activityId}": {
+      "schema": "Activity",
+      "description": "Tracking user behavioral stats and history logs"
     }
   }
 }
