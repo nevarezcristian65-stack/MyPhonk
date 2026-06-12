@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import fs from "fs";
-import * as admin from "firebase-admin";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import Stripe from "stripe";
 
@@ -34,30 +34,33 @@ function getAdminDb() {
   if (!adminDbInstance) {
     try {
       const config = getFirebaseConfig();
-      console.log("ADMIN_KEYS", Object.keys(admin));
-      console.log("ADMIN_OBJECT", admin);
-      const apps = (admin as any).apps || [];
+      const apps = getApps();
       let app;
       if (apps.length === 0) {
-        try {
-          app = (admin as any).initializeApp({
-            credential: (admin as any).credential && typeof (admin as any).credential.applicationDefault === "function"
-               ? (admin as any).credential.applicationDefault() 
-              : undefined,
-            projectId: config.projectId
-          });
-        } catch (innerE) {
-          app = (admin as any).initializeApp({
-            projectId: config.projectId
-          });
-        }
+        app = initializeApp({
+          credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+          }),
+          projectId: process.env.FIREBASE_PROJECT_ID || config.projectId
+        });
       } else {
         app = apps[0];
       }
-      console.log("APP_OBJECT", app);
-      adminDbInstance = config.firestoreDatabaseId 
-        ? getFirestore(app, config.firestoreDatabaseId) 
-        : getFirestore(app);
+      try {
+        const db = config.firestoreDatabaseId
+          ? getFirestore(app, config.firestoreDatabaseId)
+          : getFirestore(app);
+
+        console.log("FIRESTORE_INSTANCE_CREATED");
+
+        adminDbInstance = db;
+        return db;
+      } catch (e) {
+        console.error("FIRESTORE_CREATION_ERROR", e);
+        throw e;
+      }
     } catch (err) {
       console.error("Firebase Admin SDK failed to initialize:", err);
       throw err;
