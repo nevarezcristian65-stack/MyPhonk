@@ -1,10 +1,10 @@
 {
-  "projectId": "scientific-keep-c9z5m",
-  "appId": "1:240513871289:web:5778cf11455a2311489a68",
-  "apiKey": "AIzaSyAl8ojrRJcL-_24BrcoRE2k_NgyBK3pWxM",
-  "authDomain": "scientific-keep-c9z5m.firebaseapp.com",
+  "projectId": "myphonk",
+  "appId": "1:217630236910:web:77d9e2d5c74478214553ff",
+  "apiKey": "AIzaSyCuJKq3JVkLMtLbfL0TCCy7XtSWLONNDv8",
+  "authDomain": "myphonk.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-10a60de8-5955-4459-a0df-87758a872fd7",
-  "storageBucket": "scientific-keep-c9z5m.firebasestorage.app",
-  "messagingSenderId": "240513871289",
+  "storageBucket": "myphonk.firebasestorage.app",
+  "messagingSenderId": "217630236910",
   "measurementId": ""
 }
